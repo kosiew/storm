@@ -74,11 +74,11 @@ class YouRM(dspy.Retrieve):
                 if "hits" in results:
                     collected_results.extend(authoritative_results[: self.k])
                 # store collected results in a file in $OUTPUT_DIR
-                dump_results(collected_results, "you")
 
             except Exception as e:
                 logging.error(f"Error occurs when searching query {query}: {e}")
 
+        dump_results(collected_results, "you")
         return collected_results
 
 
