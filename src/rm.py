@@ -207,7 +207,7 @@ class Chat:
     def print_reply(self, response):
         print(response.choices[0].message.content)
 
-    def ask(self, query, model=model_gpt4o):
+    def ask(self, query, model="gpt-4o"):
         self.chat_history.append({"role": "user", "content": query})
 
         response = self.client.chat.completions.create(
