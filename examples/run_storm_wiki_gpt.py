@@ -75,8 +75,6 @@ def main(args):
     lm_configs.set_article_gen_lm(article_gen_lm)
     lm_configs.set_article_polish_lm(article_polish_lm)
 
-    os.environ["OUTPUT_DIR"] = args.output_dir
-
     engine_args = STORMWikiRunnerArguments(
         output_dir=args.output_dir,
         max_conv_turn=args.max_conv_turn,
