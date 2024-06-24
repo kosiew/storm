@@ -42,9 +42,11 @@ def main(args):
         "api_provider": os.getenv("OPENAI_API_TYPE"),
         "temperature": 1.0,
         "top_p": 0.9,
-        "api_base": os.getenv("AZURE_API_BASE"),
-        "api_version": os.getenv("AZURE_API_VERSION"),
     }
+
+    if os.getenv("OPENAI_API_TYPE") == "azure":
+        openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
+        openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
 
     # STORM is a LM system so different components can be powered by different models.
     # For a good balance between cost and quality, you can choose a cheaper/faster model for conv_simulator_lm
