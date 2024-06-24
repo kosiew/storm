@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from typing import Callable, List, Union
@@ -8,11 +7,6 @@ import requests
 from openai import OpenAI
 
 from utils import WebPageHelper
-
-
-def dump_results(collected_results, retriever_name):
-    with open(f"{os.getenv('OUTPUT_DIR')}/{retriever_name}_results.json", "w") as f:
-        json.dump(collected_results, f)
 
 
 class YouRM(dspy.Retrieve):
@@ -73,9 +67,6 @@ class YouRM(dspy.Retrieve):
                         authoritative_results.append(r)
                 if "hits" in results:
                     collected_results.extend(authoritative_results[: self.k])
-                # store collected results in a file in $OUTPUT_DIR
-                dump_results(collected_results, "you")
-
             except Exception as e:
                 logging.error(f"Error occurs when searching query {query}: {e}")
 
