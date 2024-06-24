@@ -11,6 +11,13 @@ from interface import Article, ArticleSectionNode, Information, InformationTable
 from utils import ArticleTextProcessing, FileIOHelper
 
 
+# Custom function to determine the dimensionality of a list
+def get_list_dimensionality(lst):
+    if not isinstance(lst, list):
+        return 0
+    return 1 + max((get_list_dimensionality(item) for item in lst), default=0)
+
+
 class StormInformation(Information):
     """Class to represent detailed information.
 
@@ -184,7 +191,15 @@ class StormInformationTable(InformationTable):
             queries = [queries]
         for query in queries:
             encoded_query = self.encoder.encode(query, show_progress_bar=False)
-            sim = cosine_similarity([encoded_query], [self.encoded_snippets])[0]
+
+            if isinstance(self.encoded_snippets, np.ndarray):
+                dim = self.encoded_snippets.ndim
+                print(f"Dimensionality (NumPy): {dim}")
+            else:
+                dim = get_list_dimensionality(self.encoded_snippets)
+                print(f"Dimensionality (List): {dim}")
+
+            sim = cosine_similarity([encoded_query], self.encoded_snippets)[0]
             sorted_indices = np.argsort(sim)
             for i in sorted_indices[-search_top_k:][::-1]:
                 selected_urls.append(self.collected_urls[i])
