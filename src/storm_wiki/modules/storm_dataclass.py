@@ -199,7 +199,21 @@ class StormInformationTable(InformationTable):
                 dim = get_list_dimensionality(self.encoded_snippets)
                 print(f"Dimensionality (List): {dim}")
 
-            sim = cosine_similarity([encoded_query], self.encoded_snippets)[0]
+            # reshape to 2D
+            if isinstance(self.encoded_snippets, np.ndarray):
+                # If self.encoded_snippets is a NumPy array, reshape it
+                snippets_reshaped = self.encoded_snippets.reshape(1, -1)
+            elif isinstance(self.encoded_snippets, list):
+                # If self.encoded_snippets is a list, ensure it's a 2D list
+                snippets_reshaped = [
+                    self.encoded_snippets
+                ]  # Convert to 2D list by wrapping in another list
+            else:
+                raise ValueError(
+                    "self.encoded_snippets must be a list or a NumPy array."
+                )
+
+            sim = cosine_similarity([encoded_query], snippets_reshaped)[0]
             sorted_indices = np.argsort(sim)
             for i in sorted_indices[-search_top_k:][::-1]:
                 selected_urls.append(self.collected_urls[i])
