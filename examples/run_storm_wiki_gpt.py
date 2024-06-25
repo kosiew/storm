@@ -33,6 +33,9 @@ from storm_wiki.engine import (
 )
 from utils import load_api_key
 
+GPT_3_5_TURBO = "gpt-3.5-turbo"
+GPT_4O = "gpt-4o"
+
 
 def main(args):
     load_api_key(toml_file_path="secrets.toml")
@@ -53,21 +56,17 @@ def main(args):
     # which is used to split queries, synthesize answers in the conversation. We recommend using stronger models
     # for outline_gen_lm which is responsible for organizing the collected information, and article_gen_lm
     # which is responsible for generating sections with citations.
+
+    # Using constants to instantiate OpenAIModel objects
     conv_simulator_lm = OpenAIModel(
-        model="gpt-3.5-turbo", max_tokens=500, **openai_kwargs
+        model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs
     )
     question_asker_lm = OpenAIModel(
-        model="gpt-3.5-turbo", max_tokens=500, **openai_kwargs
+        model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs
     )
-    outline_gen_lm = OpenAIModel(
-        model="gpt-4-0125-preview", max_tokens=400, **openai_kwargs
-    )
-    article_gen_lm = OpenAIModel(
-        model="gpt-4-0125-preview", max_tokens=700, **openai_kwargs
-    )
-    article_polish_lm = OpenAIModel(
-        model="gpt-4-0125-preview", max_tokens=4000, **openai_kwargs
-    )
+    outline_gen_lm = OpenAIModel(model=GPT_4O, max_tokens=400, **openai_kwargs)
+    article_gen_lm = OpenAIModel(model=GPT_4O, max_tokens=700, **openai_kwargs)
+    article_polish_lm = OpenAIModel(model=GPT_4O, max_tokens=4000, **openai_kwargs)
 
     lm_configs.set_conv_simulator_lm(conv_simulator_lm)
     lm_configs.set_question_asker_lm(question_asker_lm)
