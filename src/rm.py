@@ -218,7 +218,7 @@ class Chat:
 
         self.append_response_to_history(response)
 
-        self.print_reply(response)
+        # self.print_reply(response)
         print(response.usage.total_tokens)
 
     def browser_results(self, query, k=3):
