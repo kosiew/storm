@@ -313,6 +313,7 @@ class OpenAIBrowserSearch(dspy.Retrieve):
             except Exception as e:
                 logging.error(f"Error occurs when searching query {query}: {e}")
 
+        print(f"url_to_results.len = {len(url_to_results)}")
         valid_url_to_snippets = self.webpage_helper.urls_to_snippets(
             list(url_to_results.keys())
         )
@@ -321,5 +322,5 @@ class OpenAIBrowserSearch(dspy.Retrieve):
             r = url_to_results[url]
             r["snippets"] = valid_url_to_snippets[url]["snippets"]
             collected_results.append(r)
-
+        print(f"collected_results.len = {len(collected_results)}")
         return collected_results
