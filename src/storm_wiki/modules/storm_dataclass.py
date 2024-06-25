@@ -191,14 +191,6 @@ class StormInformationTable(InformationTable):
             queries = [queries]
         for query in queries:
             encoded_query = self.encoder.encode(query, show_progress_bar=False)
-
-            if isinstance(self.encoded_snippets, np.ndarray):
-                dim = self.encoded_snippets.ndim
-                print(f"Dimensionality (NumPy): {dim}")
-            else:
-                dim = get_list_dimensionality(self.encoded_snippets)
-                print(f"Dimensionality (List): {dim}")
-
             sim = cosine_similarity([encoded_query], self.encoded_snippets)[0]
             sorted_indices = np.argsort(sim)
             for i in sorted_indices[-search_top_k:][::-1]:
@@ -574,5 +566,7 @@ class StormArticle(Article):
         return article
 
     def post_processing(self):
+        self.prune_empty_nodes()
+        self.reorder_reference_index()
         self.prune_empty_nodes()
         self.reorder_reference_index()
