@@ -204,8 +204,11 @@ class Chat:
 
         self.chat_history.append({"role": message.role, "content": message.content})
 
+    def get_reply(self, response):
+        return response.choices[0].message.content
+
     def print_reply(self, response):
-        print(response.choices[0].message.content)
+        print(self.get_reply(response))
 
     def ask(self, query, model="gpt-4o"):
         self.chat_history.append({"role": "user", "content": query})
@@ -220,6 +223,7 @@ class Chat:
 
         # self.print_reply(response)
         print(response.usage.total_tokens)
+        return self.get_reply(response)
 
     def browser_results(self, query, k=3):
         _query = f"Use Browser to retrieve {k} results related to {query}. The output should be a results array of dict of (title, url, snippet)"
@@ -300,10 +304,15 @@ class OpenAIBrowserSearch(dspy.Retrieve):
         url_to_results = {}
 
         for query in queries:
+            print(f"{query=}")
             try:
-                results = self.chat.browser_results(query, self.k)
+                _results = self.chat.browser_results(query, self.k)
+                print(f"{_results=}")
+                results = _results.results
+                # print results length
+                print(f"results.len = {len(results)}")
 
-                for d in results["results"]:
+                for d in results:
                     if self.is_valid_source(d["url"]) and d["url"] not in exclude_urls:
                         url_to_results[d["url"]] = {
                             "url": d["url"],
@@ -311,6 +320,7 @@ class OpenAIBrowserSearch(dspy.Retrieve):
                             "description": d["snippet"],
                         }
             except Exception as e:
+                print(f"Error occurs when searching query {query}: {e}")
                 logging.error(f"Error occurs when searching query {query}: {e}")
 
         print(f"url_to_results.len = {len(url_to_results)}")
