@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from typing import Callable, List, Union
@@ -70,6 +71,7 @@ class YouRM(dspy.Retrieve):
             except Exception as e:
                 logging.error(f"Error occurs when searching query {query}: {e}")
 
+        print(f"{collected_results=}")
         return collected_results
 
 
@@ -205,7 +207,8 @@ class Chat:
         self.chat_history.append({"role": message.role, "content": message.content})
 
     def get_reply(self, response):
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        return content
 
     def print_reply(self, response):
         print(self.get_reply(response))
@@ -226,8 +229,9 @@ class Chat:
         return self.get_reply(response)
 
     def browser_results(self, query, k=3):
-        _query = f"Use Browser to retrieve {k} results related to {query}. The output should be a results array of dict of (title, url, snippet)"
-        return self.ask(_query)
+        _query = f"Use Browser to retrieve {k} results related to {query}. The output should be a results array of dict of (title, url, description, snippets(array of string))"
+        json_content = self.ask(_query)
+        return json.loads(json_content)
 
 
 class OpenAIBrowserSearch(dspy.Retrieve):
@@ -301,36 +305,51 @@ class OpenAIBrowserSearch(dspy.Retrieve):
         )
         self.usage += len(queries)
 
-        url_to_results = {}
+        collected_results = []
 
         for query in queries:
-            print(f"{query=}")
-            try:
-                _results = self.chat.browser_results(query, self.k)
-                print(f"{_results=}")
-                results = _results.results
-                # print results length
-                print(f"results.len = {len(results)}")
+            _results = self.chat.browser_results(query, self.k)
+            results = None
+            is_dict_results = isinstance(_results, dict) and "results" in _results
+            if is_dict_results:
+                results = _results["results"]
+            else:
+                if not isinstance(_results, dict):
+                    # print type of _results
+                    print(f"Invalid type of results: {type(_results)}")
+                else:
+                    print("missing results key in _results {results.keys()}")
+                continue
 
-                for d in results:
-                    if self.is_valid_source(d["url"]) and d["url"] not in exclude_urls:
-                        url_to_results[d["url"]] = {
-                            "url": d["url"],
-                            "title": d["title"],
-                            "description": d["snippet"],
+            for d in results:
+                # assert d is dict
+                if not isinstance(d, dict):
+                    print(f"Invalid result: {d}")
+                    continue
+
+                try:
+                    # ensure keys are present
+                    url = d.get("url", None)
+                    title = d.get("title", None)
+                    description = d.get("description", None)
+                    snippets = d.get("snippets", None)
+
+                    # raise exception of missing key(s)
+                    if not all([url, title, description, snippets]):
+                        raise ValueError(f"Missing key(s) in result: {d}")
+                    if self.is_valid_source(url) and url not in exclude_urls:
+                        result = {
+                            "url": url,
+                            "title": title,
+                            "description": description,
+                            "snippets": snippets,
                         }
-            except Exception as e:
-                print(f"Error occurs when searching query {query}: {e}")
-                logging.error(f"Error occurs when searching query {query}: {e}")
+                        collected_results.append(result)
+                    else:
+                        print(f"invalid source {url} or url in exclude_urls")
+                except Exception as e:
+                    print(f"Error occurs when processing {result=}: {e}")
+                    logging.error(f"Error occurs when searching query {query}: {e}")
 
-        print(f"url_to_results.len = {len(url_to_results)}")
-        valid_url_to_snippets = self.webpage_helper.urls_to_snippets(
-            list(url_to_results.keys())
-        )
-        collected_results = []
-        for url in valid_url_to_snippets:
-            r = url_to_results[url]
-            r["snippets"] = valid_url_to_snippets[url]["snippets"]
-            collected_results.append(r)
         print(f"collected_results.len = {len(collected_results)}")
         return collected_results
