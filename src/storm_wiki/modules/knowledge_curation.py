@@ -72,7 +72,6 @@ class ConvSimulator(dspy.Module):
                 break
             if user_utterance.startswith("Thank you so much for your help!"):
                 break
-            print(f"==> convSimulator {user_utterance=}")
             expert_output = self.topic_expert(
                 topic=topic, question=user_utterance, ground_truth_url=ground_truth_url
             )
