@@ -19,23 +19,6 @@ args.output_dir/
         storm_gen_article_polished.txt  # Polished final article (if args.do_polish_article is True)
 """
 
-import os
-import sys
-from argparse import ArgumentParser
-
-sys.path.append("./src")
-from lm import OpenAIModel
-from rm import BingSearch, OpenAIBrowserSearch, YouRM
-from storm_wiki.engine import (
-    STORMWikiLMConfigs,
-    STORMWikiRunner,
-    STORMWikiRunnerArguments,
-)
-from utils import load_api_key
-
-GPT_3_5_TURBO = "gpt-3.5-turbo"
-GPT_4O = "gpt-4o"
-
 
 def main(args):
     load_api_key(toml_file_path="secrets.toml")
