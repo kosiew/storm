@@ -84,6 +84,7 @@ class CreateWriterWithPersona(dspy.Module):
                 if "http" in s:
                     urls.append(s[s.find("http") :])
             examples = []
+            print(f"==> {urls=} ")
             for url in urls:
                 try:
                     title, toc = get_wiki_page_title_and_toc(url)
@@ -93,6 +94,7 @@ class CreateWriterWithPersona(dspy.Module):
                     continue
             if len(examples) == 0:
                 examples.append("N/A")
+            print(f"==> {examples=}")
             gen_persona_output = self.gen_persona(
                 topic=topic, examples="\n----------\n".join(examples)
             ).personas

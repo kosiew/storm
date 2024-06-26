@@ -33,7 +33,7 @@ _args = {
 # convert _args to namespace
 args = type("args", (object,), _args)()
 
-topic = "WordPress vs Wix"
+topic = "Wix vs WordPress: Which is the Best Website Builder?"
 
 
 def main(args):
