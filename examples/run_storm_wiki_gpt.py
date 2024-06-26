@@ -1,3 +1,19 @@
+import os
+import sys
+from argparse import ArgumentParser
+
+sys.path.append("./src")
+from lm import OpenAIModel
+from rm import BingSearch, OpenAIBrowserSearch, YouRM
+from storm_wiki.engine import (
+    STORMWikiLMConfigs,
+    STORMWikiRunner,
+    STORMWikiRunnerArguments,
+)
+from utils import load_api_key
+
+GPT_3_5_TURBO = "gpt-3.5-turbo"
+GPT_4O = "gpt-4o"
 """
 STORM Wiki pipeline powered by GPT-3.5/4 and You.com search engine.
 You need to set up the following environment variables to run this script:
@@ -21,18 +37,9 @@ args.output_dir/
 
 
 def main(args):
-    load_api_key(toml_file_path="secrets.toml")
-    lm_configs = STORMWikiLMConfigs()
-    openai_kwargs = {
-        "api_key": os.getenv("OPENAI_API_KEY"),
-        "api_provider": os.getenv("OPENAI_API_TYPE"),
-        "temperature": 1.0,
-        "top_p": 0.9,
-    }
+    openai_kwargs = get_openai_kwargs()
 
-    if os.getenv("OPENAI_API_TYPE") == "azure":
-        openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
-        openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
+    lm_configs = STORMWikiLMConfigs()
 
     # STORM is a LM system so different components can be powered by different models.
     # For a good balance between cost and quality, you can choose a cheaper/faster model for conv_simulator_lm
@@ -90,6 +97,21 @@ def main(args):
     )
     runner.post_run()
     runner.summary()
+
+
+def get_openai_kwargs():
+    load_api_key(toml_file_path="secrets.toml")
+    openai_kwargs = {
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "api_provider": os.getenv("OPENAI_API_TYPE"),
+        "temperature": 1.0,
+        "top_p": 0.9,
+    }
+    if os.getenv("OPENAI_API_TYPE") == "azure":
+        openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
+        openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
+
+    return openai_kwargs
 
 
 if __name__ == "__main__":
