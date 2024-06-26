@@ -225,7 +225,7 @@ class Chat:
         self.append_response_to_history(response)
 
         # self.print_reply(response)
-        print(response.usage.total_tokens)
+        # print(response.usage.total_tokens)
         return self.get_reply(response)
 
     def browser_results(self, query, k=3):
@@ -351,5 +351,4 @@ class OpenAIBrowserSearch(dspy.Retrieve):
                     print(f"Error occurs when processing {result=}: {e}")
                     logging.error(f"Error occurs when searching query {query}: {e}")
 
-        print(f"collected_results.len = {len(collected_results)}")
         return collected_results
