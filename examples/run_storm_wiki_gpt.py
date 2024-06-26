@@ -61,9 +61,7 @@ def main(args):
     conv_simulator_lm = OpenAIModel(
         model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs
     )
-    question_asker_lm = OpenAIModel(
-        model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs
-    )
+    question_asker_lm = OpenAIModel(model=GPT_4O, max_tokens=500, **openai_kwargs)
     outline_gen_lm = OpenAIModel(model=GPT_4O, max_tokens=400, **openai_kwargs)
     article_gen_lm = OpenAIModel(model=GPT_4O, max_tokens=700, **openai_kwargs)
     article_polish_lm = OpenAIModel(model=GPT_4O, max_tokens=4000, **openai_kwargs)
