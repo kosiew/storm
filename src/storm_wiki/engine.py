@@ -381,7 +381,7 @@ class STORMWikiRunner(Engine):
         # research module
         information_table: StormInformationTable = None
         if do_research:
-            print(f"==>run_knowledge_curation_module: {topic}")
+            print(f"==> run_knowledge_curation_module: {topic}")
             information_table = self.run_knowledge_curation_module(
                 ground_truth_url=ground_truth_url, callback_handler=callback_handler
             )
