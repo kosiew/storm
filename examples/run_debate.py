@@ -33,7 +33,10 @@ _args = {
 # convert _args to namespace
 args = type("args", (object,), _args)()
 
-topic = "WordPress is better than Wix"
+topic = "Capitalism is better than socialism"
+topic = "Wix is better than WordPress "
+DEBATE_ROLES = ["proposer", "opposer"]
+DEBATE_ROLES = ["opposer", "proposer"]
 
 
 def get_debater_engine():
@@ -221,12 +224,14 @@ class ConvSimulator(dspy.Module):
         """
         topic: The topic to debate
         """
-        dlg_history: List[DialogueTurn] = []
+        dlg_histories: Dict[str, List[DialogueTurn]] = {"proposer": [], "opposer": []}
         # ==> here is the conversation user_utterance=question
         # expert_output=answer
         argument = None
+        combined_dlg_history = []
         for _ in range(self.max_turn):
-            for debater in ["proposer", "opposer"]:
+            for debater in DEBATE_ROLES:
+                dlg_history = dlg_histories[debater]
                 user_utterance = self.debate_writer(
                     topic=topic,
                     persona=debater,
@@ -249,8 +254,9 @@ class ConvSimulator(dspy.Module):
                     search_results=expert_output.searched_results,
                 )
                 dlg_history.append(dlg_turn)
+                combined_dlg_history.append(dlg_turn)
 
-        return dspy.Prediction(dlg_history=dlg_history)
+        return dspy.Prediction(dlg_history=combined_dlg_history)
 
 
 def _run_conversation(
