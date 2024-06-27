@@ -209,6 +209,7 @@ class TopicExpert(dspy.Module):
         self.search_top_k = search_top_k
 
     def forward(self, topic: str, question: str, ground_truth_url: str):
+        answer = ""
         with dspy.settings.context(lm=self.engine):
             # Identify: Break down question into queries.
             queries = self.generate_queries(topic=topic, question=question).queries

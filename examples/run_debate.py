@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from typing import Dict, List, Optional, Tuple, Union
 
 import dspy
+from run_storm_wiki_gpt import GPT_3_5_TURBO, GPT_4O, get_openai_kwargs
 
 from rm import OpenAIBrowserSearch
 
@@ -16,10 +17,6 @@ from storm_wiki.engine import (
     STORMWikiRunnerArguments,
 )
 from utils import load_api_key
-
-GPT_3_5_TURBO = "gpt-3.5-turbo"
-GPT_4O = "gpt-4o"
-
 
 _args = {
     "output_dir": "~/Downloads/storm",
@@ -238,40 +235,30 @@ class ConvSimulator(dspy.Module):
         max_turn: int,
     ):
         super().__init__()
-        # stopped here
-        self.proposer = Proposer(engine=proposer_lm)
-        self.proposer_topic_expert = TopicExpert(
-            engine=topic_expert_engine,
+        self.proposer = TopicExpert(
+            engine=OpenAIModel(model=GPT_4O, max_tokens=500, **openai_kwargs),
             max_search_queries=max_search_queries_per_turn,
             search_top_k=search_top_k,
             retriever=rm_proposer,
         )
+        self.opposer = TopicExpert(
+            engine=OpenAIModel(model=GPT_4O, max_tokens=500, **openai_kwargs),
+            max_search_queries=max_search_queries_per_turn,
+            search_top_k=search_top_k,
+            retriever=rm_opposer,
+        )
         self.max_turn = max_turn
 
-    def forward(
-        self,
-        topic: str,
-        persona: str,
-        ground_truth_url: str,
-        callback_handler: BaseCallbackHandler,
-    ):
+    def forward(self, topic: str):
         """
-        topic: The topic to research.
-        persona: The persona of the Wikipedia writer.
-        ground_truth_url: The ground_truth_url will be excluded from search to avoid ground truth leakage in evaluation.
+        topic: The topic to debate
         """
         dlg_history: List[DialogueTurn] = []
         # ==> here is the conversation user_utterance=question
         # expert_output=answer
+        opposer_argument = None
         for _ in range(self.max_turn):
-            user_utterance = self.wiki_writer(
-                topic=topic, persona=persona, dialogue_turns=dlg_history
-            ).question
-            if user_utterance == "":
-                logging.error("Simulated Wikipedia writer utterance is empty.")
-                break
-            if user_utterance.startswith("Thank you so much for your help!"):
-                break
+            proposer_argument = self.proposer(topic=topic, dialogue_turns=dlg_history)
             expert_output = self.topic_expert(
                 topic=topic, question=user_utterance, ground_truth_url=ground_truth_url
             )
