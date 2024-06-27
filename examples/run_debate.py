@@ -1,22 +1,20 @@
+import logging
 import os
 import sys
-from argparse import ArgumentParser
 from typing import Dict, List, Optional, Tuple, Union
 
 import dspy
 from run_storm_wiki_gpt import GPT_3_5_TURBO, GPT_4O, get_openai_kwargs
 
+from interface import Retriever
 from rm import OpenAIBrowserSearch
+from storm_wiki.modules.retriever import StormRetriever
+from storm_wiki.modules.storm_dataclass import DialogueTurn, StormInformation
 
 sys.path.append("./src")
 from lm import OpenAIModel
-from rm import BingSearch, OpenAIBrowserSearch, YouRM
-from storm_wiki.engine import (
-    STORMWikiLMConfigs,
-    STORMWikiRunner,
-    STORMWikiRunnerArguments,
-)
-from utils import load_api_key
+from rm import OpenAIBrowserSearch
+from utils import ArticleTextProcessing
 
 _args = {
     "output_dir": "~/Downloads/storm",
@@ -37,28 +35,31 @@ args = type("args", (object,), _args)()
 
 topic = "WordPress is better than Wix"
 
-rm_proposer = OpenAIBrowserSearch(openai_api_key=os.getenv("OPENAI_API_KEY"))
-rm_opposer = OpenAIBrowserSearch(openai_api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_debater_engine():
+    return OpenAIModel(model=GPT_3_5_TURBO, max_tokens=500, **get_openai_kwargs())
 
 
-class AskQuestion(dspy.Signature):
-    """You are an experienced debater. You are chatting with an expert to get information for the topic you are debating. Ask good questions to get more useful information relevant to the topic.
-    When you have no more question to ask, say "Thank you so much for your help!" to end the conversation.
-    Please only ask a question at a time and don't ask what you have asked before. Your questions should be related to the topic you want to write.
-    """
+def get_topic_expert_engine():
+    return OpenAIModel(model=GPT_4O, max_tokens=500, **get_openai_kwargs())
 
-    topic = dspy.InputField(prefix="Topic you want to write: ", format=str)
-    conv = dspy.InputField(prefix="Conversation history:\n", format=str)
-    question = dspy.OutputField(format=str)
+
+def get_rm():
+    rm = OpenAIBrowserSearch(openai_api_key=os.getenv("OPENAI_API"))
+    return StormRetriever(rm, k=args.search_top_k)
 
 
 class AskQuestionWithPersona(dspy.Signature):
-    """You are a experienced debater. You are articulate and persuasive, always aiming to strengthen your arguments with well-researched information. Now, you are chatting with an expert to get more useful information to support your stance. Ask insightful questions to gather valuable evidence and data.
+    """You are an experienced debater. You are articulate and persuasive, always aiming to produce strong arguments with well-researched information.
+    Now, you are chatting with an expert to get more useful information to support your stance and to rebut arguments. Ask insightful questions to gather valuable evidence and data.
     When you have no more questions to ask, say "Thank you so much for your help!" to end the conversation.
-    Please only ask one question at a time and don't repeat questions. Your questions should be related to the topic you are debating.
+    Please only ask one question at a time and don't repeat questions. Your questions should relate to rebutting the argument from the other party and to strengthen your  position on the topic you are debating.
+    If you are the opposer, ask questions to argue AGAINST the topic.
+    If you are the proposer, ask questions to argue FOR the topic.
     """
 
     topic = dspy.InputField(prefix="Debate topic: ", format=str)
+    argument = dspy.InputField(prefix="Argument to rebut: ", format=str)
     persona = dspy.InputField(prefix="Your role in this debate", format=str)
     conv = dspy.InputField(prefix="Conversation history:\n", format=str)
     question = dspy.OutputField(format=str)
@@ -91,7 +92,7 @@ class AnswerQuestion(dspy.Signature):
     )
 
 
-class Debater(dspy.Module):
+class DebateWriter(dspy.Module):
     """Perspective-guided question asking in conversational setup.
 
     The asked question will be used to start a next round of information seeking."""
@@ -99,39 +100,33 @@ class Debater(dspy.Module):
     def __init__(self, engine: Union[dspy.dsp.LM, dspy.dsp.HFModel]):
         super().__init__()
         self.ask_question_with_persona = dspy.ChainOfThought(AskQuestionWithPersona)
-        self.ask_question = dspy.ChainOfThought(AskQuestion)
         self.engine = engine
 
     def forward(
         self,
         topic: str,
         persona: str,
+        argument: str,
         dialogue_turns: List[DialogueTurn],
-        draft_page=None,
     ):
         conv = []
         for turn in dialogue_turns[:-4]:
             conv.append(
-                f"You: {turn.user_utterance}\nExpert: Omit the answer here due to space limit."
+                f"{persona}: {turn.user_utterance}\nExpert: Omit the answer here due to space limit."
             )
         for turn in dialogue_turns[-4:]:
             conv.append(
-                f"You: {turn.user_utterance}\nExpert: {ArticleTextProcessing.remove_citations(turn.agent_utterance)}"
+                f"{persona}: {turn.user_utterance}\nExpert: {ArticleTextProcessing.remove_citations(turn.agent_utterance)}"
             )
         conv = "\n".join(conv)
         conv = conv.strip() or "N/A"
         conv = ArticleTextProcessing.limit_word_count_preserve_newline(conv, 2500)
 
         with dspy.settings.context(lm=self.engine):
-            if persona is not None and len(persona.strip()) > 0:
-                question = self.ask_question_with_persona(
-                    topic=topic, persona=persona, conv=conv
-                ).question
-            else:
-                question = self.ask_question(
-                    topic=topic, persona=persona, conv=conv
-                ).question
-        print(f"==> wiki_writer: {question=}")
+            question = self.ask_question_with_persona(
+                topic=topic, persona=persona, conv=conv, argument=argument
+            ).question
+        print(f"==> {persona}_writer: {question=}")
         return dspy.Prediction(question=question)
 
 
@@ -153,13 +148,12 @@ class TopicExpert(dspy.Module):
         super().__init__()
         self.generate_queries = dspy.Predict(QuestionToQuery)
         self.retriever = retriever
-        self.retriever.update_search_top_k(search_top_k)
         self.answer_question = dspy.Predict(AnswerQuestion)
         self.engine = engine
         self.max_search_queries = max_search_queries
         self.search_top_k = search_top_k
 
-    def forward(self, topic: str, question: str, ground_truth_url: str):
+    def forward(self, topic: str, question: str, ground_truth_url: str = ""):
         with dspy.settings.context(lm=self.engine):
             # Identify: Break down question into queries.
             queries = self.generate_queries(topic=topic, question=question).queries
@@ -203,28 +197,6 @@ class TopicExpert(dspy.Module):
         )
 
 
-class DialogueTurn:
-    def __init__(
-        self,
-        proposer_argument: str = None,
-        opposer_argument: str = None,
-    ):
-        self.proposer_argument = proposer_argument
-        self.opposer_argument = opposer_argument
-
-    def log(self):
-        """
-        Returns a json object that contains all information inside `self`
-        """
-
-        return OrderedDict(
-            {
-                "proposer_argument": self.proposer_argument,
-                "opposer_argument": self.opposer_argument,
-            }
-        )
-
-
 class ConvSimulator(dspy.Module):
     """Simulate a conversation between a proposer and an opposer"""
 
@@ -235,18 +207,14 @@ class ConvSimulator(dspy.Module):
         max_turn: int,
     ):
         super().__init__()
-        self.proposer = TopicExpert(
-            engine=OpenAIModel(model=GPT_4O, max_tokens=500, **openai_kwargs),
+        self.debate_writer = DebateWriter(engine=get_debater_engine())
+        self.topic_expert = TopicExpert(
+            engine=get_topic_expert_engine(),
             max_search_queries=max_search_queries_per_turn,
             search_top_k=search_top_k,
-            retriever=rm_proposer,
+            retriever=get_rm(),
         )
-        self.opposer = TopicExpert(
-            engine=OpenAIModel(model=GPT_4O, max_tokens=500, **openai_kwargs),
-            max_search_queries=max_search_queries_per_turn,
-            search_top_k=search_top_k,
-            retriever=rm_opposer,
-        )
+
         self.max_turn = max_turn
 
     def forward(self, topic: str):
@@ -256,86 +224,79 @@ class ConvSimulator(dspy.Module):
         dlg_history: List[DialogueTurn] = []
         # ==> here is the conversation user_utterance=question
         # expert_output=answer
-        opposer_argument = None
+        argument = None
         for _ in range(self.max_turn):
-            proposer_argument = self.proposer(topic=topic, dialogue_turns=dlg_history)
-            expert_output = self.topic_expert(
-                topic=topic, question=user_utterance, ground_truth_url=ground_truth_url
-            )
-            dlg_turn = DialogueTurn(
-                agent_utterance=expert_output.answer,
-                user_utterance=user_utterance,
-                search_queries=expert_output.queries,
-                search_results=expert_output.searched_results,
-            )
-            dlg_history.append(dlg_turn)
-            callback_handler.on_dialogue_turn_end(dlg_turn=dlg_turn)
+            for debater in ["proposer", "opposer"]:
+                user_utterance = self.debate_writer(
+                    topic=topic,
+                    persona=debater,
+                    argument=argument,
+                    dialogue_turns=dlg_history,
+                ).question
+                if user_utterance == "":
+                    logging.error("Simulated Debate writer utterance is empty.")
+                    break
+                if user_utterance.startswith("Thank you so much for your help!"):
+                    break
+                expert_output = self.topic_expert(topic=topic, question=user_utterance)
+
+                argument = expert_output.answer
+
+                dlg_turn = DialogueTurn(
+                    agent_utterance=expert_output.answer,
+                    user_utterance=user_utterance,
+                    search_queries=expert_output.queries,
+                    search_results=expert_output.searched_results,
+                )
+                dlg_history.append(dlg_turn)
 
         return dspy.Prediction(dlg_history=dlg_history)
 
 
-def main(args):
-    load_api_key(toml_file_path="secrets.toml")
-    lm_configs = STORMWikiLMConfigs()
-    openai_kwargs = {
-        "api_key": os.getenv("OPENAI_API_KEY"),
-        "api_provider": os.getenv("OPENAI_API_TYPE"),
-        "temperature": 1.0,
-        "top_p": 0.9,
-    }
+def _run_conversation(
+    conv_simulator,
+    topic,
+) -> List[Tuple[str, List[DialogueTurn]]]:
+    """
+    Executes multiple conversation simulations concurrently, each with a different persona,
+    and collects their dialog histories. The dialog history of each conversation is cleaned
+    up before being stored.
 
-    if os.getenv("OPENAI_API_TYPE") == "azure":
-        openai_kwargs["api_base"] = os.getenv("AZURE_API_BASE")
-        openai_kwargs["api_version"] = os.getenv("AZURE_API_VERSION")
+    Parameters:
+        conv_simulator (callable): The function to simulate conversations. It must accept four
+            parameters: `topic`, `ground_truth_url`, `persona`, and `callback_handler`, and return
+            an object that has a `dlg_history` attribute.
+        topic (str): The topic of conversation for the simulations.
+        ground_truth_url (str): The URL to the ground truth data related to the conversation topic.
+        considered_personas (list): A list of personas under which the conversation simulations
+            will be conducted. Each persona is passed to `conv_simulator` individually.
+        callback_handler (callable): A callback function that is passed to `conv_simulator`. It
+            should handle any callbacks or events during the simulation.
 
-    # STORM is a LM system so different components can be powered by different models.
-    # For a good balance between cost and quality, you can choose a cheaper/faster model for conv_simulator_lm
-    # which is used to split queries, synthesize answers in the conversation. We recommend using stronger models
-    # for outline_gen_lm which is responsible for organizing the collected information, and article_gen_lm
-    # which is responsible for generating sections with citations.
+    Returns:
+        list of tuples: A list where each tuple contains a persona and its corresponding cleaned
+        dialog history (`dlg_history`) from the conversation simulation.
+    """
 
-    # Using constants to instantiate OpenAIModel objects
-    conv_simulator_lm = OpenAIModel(
-        model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs
-    )
-    proposer_lm = OpenAIModel(model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs)
-    opposer_lm = OpenAIModel(model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs)
+    conversations = []
 
-    adjudicator_lm = OpenAIModel(model=GPT_3_5_TURBO, max_tokens=500, **openai_kwargs)
-
-    engine_args = STORMWikiRunnerArguments(
-        output_dir=args.output_dir,
-        max_conv_turn=args.max_conv_turn,
-        max_perspective=args.max_perspective,
-        search_top_k=args.search_top_k,
-        max_thread_num=args.max_thread_num,
-    )
-
-    # STORM is a knowledge curation system which consumes information from the retrieval module.
-    # Currently, the information source is the Internet and we use search engine API as the retrieval module.
-    if args.retriever == "bing":
-        rm = BingSearch(
-            bing_search_api=os.getenv("BING_SEARCH_API_KEY"), k=engine_args.search_top_k
-        )
-    elif args.retriever == "you":
-        rm = YouRM(ydc_api_key=os.getenv("YDC_API_KEY"), k=engine_args.search_top_k)
-    elif args.retriever == "openai":
-        rm = OpenAIBrowserSearch(
-            openai_api_key=os.getenv("OPENAI_API_KEY"), k=engine_args.search_top_k
+    def run_conv():
+        return conv_simulator(
+            topic=topic,
         )
 
-    runner = STORMWikiRunner(engine_args, lm_configs, rm)
+    conversations.append(run_conv())
 
-    runner.run(
-        topic=topic,
-        do_research=args.do_research,
-        do_generate_outline=args.do_generate_outline,
-        do_generate_article=args.do_generate_article,
-        do_polish_article=args.do_polish_article,
+    return conversations
+
+
+def main():
+    conv_simulator = ConvSimulator(
+        max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
-    runner.post_run()
-    runner.summary()
+    conversation = _run_conversation(conv_simulator, topic)
+    print(f"{conversation=}")
 
 
 if __name__ == "__main__":
-    main(args)
+    main()
