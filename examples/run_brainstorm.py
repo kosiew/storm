@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 from typing import List, Tuple, Union
 
@@ -34,6 +35,7 @@ _args = {
 args = type("args", (object,), _args)()
 
 topic = "Interesting topics for a Swiss watch blog"
+NUMBER_OF_PARTICIPANTS = 5
 
 
 def get_thinker_engine():
@@ -48,6 +50,9 @@ class GenPersona(dspy.Signature):
     """
 
     topic = dspy.InputField(prefix="Topic of interest:", format=str)
+    number_of_participants = dspy.InputField(
+        prefix="Number of participants:", format=int
+    )
     personas = dspy.OutputField(format=str)
 
 
@@ -62,7 +67,9 @@ class CreateBrainstormPersona(dspy.Module):
     def forward(self, topic: str, draft=None):
         with dspy.settings.context(lm=self.engine):
 
-            gen_persona_output = self.gen_persona(topic=topic).personas
+            gen_persona_output = self.gen_persona(
+                topic=topic, number_of_participants=NUMBER_OF_PARTICIPANTS
+            ).personas
 
         personas = []
         for s in gen_persona_output.split("\n"):
@@ -103,7 +110,6 @@ class CreativeThinker(dspy.Module):
         self,
         topic: str,
         persona: str,
-        argument: str,
         dialogue_turns: List[DialogueTurn],
     ):
         conv = []
@@ -156,8 +162,8 @@ class ConvSimulator(dspy.Module):
         dlg_history: List[DialogueTurn] = []
         personas = self.create_personas(topic=topic).personas
 
-        for _ in range(self.max_turn):
-            for persona in personas:
+        for persona in personas:
+            for _ in range(self.max_turn):
                 user_utterance = self.thinker(
                     topic=topic,
                     persona=persona,
