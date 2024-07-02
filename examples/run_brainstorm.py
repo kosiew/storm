@@ -222,12 +222,14 @@ def _run_conversation(
 def main():
     global args, topic
 
+    print(f"==> Running brainstorming for the topic '{topic}'.")
+
     conv_simulator = ConvSimulator(
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
     conversations = _run_conversation(conv_simulator, topic)
 
-    topic_output_dir = get_topic_output_dir(args.output_dir, topic)
+    topic_output_dir = get_topic_output_dir(topic)
     with open(f"{topic_output_dir}/brainstorm.txt", "w") as f:
         for conversation in conversations:
             dlg_history = conversation.dlg_history
