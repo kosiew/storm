@@ -218,8 +218,15 @@ def main():
     conv_simulator = ConvSimulator(
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
-    conversation = _run_conversation(conv_simulator, topic)
-    print(f"{conversation=}")
+    conversations = _run_conversation(conv_simulator, topic)
+
+    print(f"{conversations=}")
+    for conversation in conversations:
+        dlg_history = conversation.dlg_history
+        for turn in dlg_history:
+            query_str = "\n".join(turn.search_queries)
+            agent_str = turn.agent_utterance
+            print(f"{query_str}\n{agent_str}\n")
 
 
 if __name__ == "__main__":

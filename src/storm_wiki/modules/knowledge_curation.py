@@ -247,7 +247,7 @@ class TopicExpert(dspy.Module):
                 # When no information is found, the expert shouldn't hallucinate.
                 answer = "Sorry, I cannot find information for this question. Please ask another question."
 
-        print(f"==> TopicExpert: {queries=} {answer=}")
+        # print(f"==> TopicExpert: {queries=} {answer=}")
         return dspy.Prediction(
             queries=queries, searched_results=searched_results, answer=answer
         )
