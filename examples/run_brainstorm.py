@@ -1,19 +1,16 @@
 import logging
+import re
 import sys
 from typing import List, Tuple, Union
 
 import dspy
 from run_debate import TopicExpert, get_rm, get_topic_expert_engine
-from run_storm_wiki_gpt import GPT_3_5_TURBO, GPT_4O, get_openai_kwargs
+from run_storm_wiki_gpt import GPT_3_5_TURBO, get_openai_kwargs
 
-from interface import Retriever
-from rm import OpenAIBrowserSearch
-from storm_wiki.modules.retriever import StormRetriever
-from storm_wiki.modules.storm_dataclass import DialogueTurn, StormInformation
+from storm_wiki.modules.storm_dataclass import DialogueTurn
 
 sys.path.append("./src")
 from lm import OpenAIModel
-from rm import OpenAIBrowserSearch
 from utils import ArticleTextProcessing
 
 _args = {
@@ -25,7 +22,7 @@ _args = {
     "do_generate_article": False,
     "do_polish_article": False,
     "max_conv_turn": 3,
-    "max_perspective": 3,
+    "max_perspective": 5,
     "search_top_k": 3,
     "max_thread_num": 3,
 }
@@ -103,7 +100,6 @@ class CreativeThinker(dspy.Module):
         self,
         topic: str,
         persona: str,
-        argument: str,
         dialogue_turns: List[DialogueTurn],
     ):
         conv = []
@@ -156,8 +152,8 @@ class ConvSimulator(dspy.Module):
         dlg_history: List[DialogueTurn] = []
         personas = self.create_personas(topic=topic).personas
 
-        for _ in range(self.max_turn):
-            for persona in personas:
+        for persona in personas:
+            for _ in range(self.max_turn):
                 user_utterance = self.thinker(
                     topic=topic,
                     persona=persona,
