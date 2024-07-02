@@ -4,7 +4,12 @@ import sys
 from typing import List, Tuple, Union
 
 import dspy
-from run_debate import TopicExpert, get_rm, get_topic_expert_engine
+from run_debate import (
+    TopicExpert,
+    get_rm,
+    get_topic_expert_engine,
+    get_topic_output_dir,
+)
 from run_storm_wiki_gpt import GPT_3_5_TURBO, get_openai_kwargs
 
 from storm_wiki.modules.storm_dataclass import DialogueTurn
@@ -30,7 +35,7 @@ _args = {
 # convert _args to namespace
 args = type("args", (object,), _args)()
 
-topic = "Interesting topics for a Swiss watch blog"
+topic = input("Topic: ")
 
 
 def get_thinker_engine():
@@ -215,18 +220,21 @@ def _run_conversation(
 
 
 def main():
+    global args, topic
+
     conv_simulator = ConvSimulator(
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
     conversations = _run_conversation(conv_simulator, topic)
 
-    print(f"{conversations=}")
-    for conversation in conversations:
-        dlg_history = conversation.dlg_history
-        for turn in dlg_history:
-            query_str = "\n".join(turn.search_queries)
-            agent_str = turn.agent_utterance
-            print(f"{query_str}\n{agent_str}\n")
+    topic_output_dir = get_topic_output_dir(args.output_dir, topic)
+    with open(f"{topic_output_dir}/brainstorm.txt", "w") as f:
+        for conversation in conversations:
+            dlg_history = conversation.dlg_history
+            for turn in dlg_history:
+                query_str = "\n".join(turn.search_queries)
+                agent_str = turn.agent_utterance
+                f.write(f"{query_str}\n{agent_str}\n")
 
 
 if __name__ == "__main__":

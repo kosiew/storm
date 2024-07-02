@@ -39,6 +39,13 @@ DEBATE_ROLES = ["proposer", "opposer"]
 DEBATE_ROLES = ["opposer", "proposer"]
 
 
+def get_topic_output_dir(topic: str):
+    topic_dir_name = topic.replace(" ", "_").replace("/", "_")
+    topic_output_dir = os.path.join(args.output_dir, topic_dir_name)
+    os.makedirs(topic_output_dir, exist_ok=True)
+    return topic_output_dir
+
+
 def get_debater_engine():
     return OpenAIModel(model=GPT_3_5_TURBO, max_tokens=500, **get_openai_kwargs())
 
@@ -301,7 +308,9 @@ def main():
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
     conversation = _run_conversation(conv_simulator, topic)
-    print(f"{conversation=}")
+    topic_output_dir = get_topic_output_dir(topic)
+    with open(f"{topic_output_dir}/debate.txt", "w") as f:
+        f.write(f"{conversation=}")
 
 
 if __name__ == "__main__":
