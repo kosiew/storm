@@ -226,7 +226,7 @@ class ConvSimulator(dspy.Module):
 def _run_conversation(
     conv_simulator,
     topic,
-) -> List[Tuple[str, List[DialogueTurn]]]:
+) -> List[Conversation]:
     """
     Executes multiple conversation simulations concurrently, each with a different persona,
     and collects their dialog histories. The dialog history of each conversation is cleaned
@@ -268,15 +268,13 @@ def main():
     conv_simulator = ConvSimulator(
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
-    conversations: List[Tuple[str, List[DialogueTurn]]] = _run_conversation(
-        conv_simulator, topic
-    )
+    conversations: List[Conversation] = _run_conversation(conv_simulator, topic)
 
     topic_output_dir = get_topic_output_dir(topic)
     output_file = f"{topic_output_dir}/brainstorm.txt"
     with open(output_file, "w") as f:
         for conversation in conversations:
-            _, dlg_history = conversation  # Unpack the tuple
+            dlg_history = conversation.dlg_history
             personas = conversation.personas
             for turn in dlg_history:
                 query_str = (
