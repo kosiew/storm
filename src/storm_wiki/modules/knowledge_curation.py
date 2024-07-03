@@ -61,6 +61,8 @@ class ConvSimulator(dspy.Module):
         ground_truth_url: The ground_truth_url will be excluded from search to avoid ground truth leakage in evaluation.
         """
         dlg_history: List[DialogueTurn] = []
+        # ==> here is the conversation user_utterance=question
+        # expert_output=answer
         for _ in range(self.max_turn):
             user_utterance = self.wiki_writer(
                 topic=topic, persona=persona, dialogue_turns=dlg_history
@@ -125,7 +127,7 @@ class WikiWriter(dspy.Module):
                 question = self.ask_question(
                     topic=topic, persona=persona, conv=conv
                 ).question
-
+        print(f"==> wiki_writer: {question=}")
         return dspy.Prediction(question=question)
 
 
@@ -321,6 +323,7 @@ class StormKnowledgeCurationModule(KnowledgeCurationModule):
         conversations = []
 
         def run_conv(persona):
+            print(f"==> run_conv with persona: {persona}")
             return conv_simulator(
                 topic=topic,
                 ground_truth_url=ground_truth_url,
