@@ -16,8 +16,23 @@ from lm import OpenAIModel
 from rm import OpenAIBrowserSearch
 from utils import ArticleTextProcessing
 
+
+class Args:
+    output_dir: str
+    max_thread_num: int
+    retriever: str
+    do_research: bool
+    do_generate_outline: bool
+    do_generate_article: bool
+    do_polish_article: bool
+    max_conv_turn: int
+    max_perspective: int
+    search_top_k: int
+
+
+# Define the arguments
 _args = {
-    "output_dir": "~/Downloads/storm",
+    "output_dir": "~/Downloads/debate",
     "max_thread_num": 3,
     "retriever": "openai",
     "do_research": True,
@@ -27,11 +42,17 @@ _args = {
     "max_conv_turn": 3,
     "max_perspective": 5,
     "search_top_k": 3,
-    "max_thread_num": 3,
 }
 
-# convert _args to namespace
-args = type("args", (object,), _args)()
+
+def get_args(_args):
+    args = Args()
+    for key, value in _args.items():
+        setattr(args, key, value)
+    return args
+
+
+args = get_args(_args)
 
 topic = "Capitalism is better than socialism"
 topic = "Wix is better than WordPress "

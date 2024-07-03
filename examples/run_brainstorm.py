@@ -4,8 +4,10 @@ import sys
 from typing import List, Tuple, Union
 
 import dspy
+from arrow import get
 from run_debate import (
     TopicExpert,
+    get_args,
     get_rm,
     get_topic_expert_engine,
     get_topic_output_dir,
@@ -19,20 +21,6 @@ from typing import Any
 
 from lm import OpenAIModel
 from utils import ArticleTextProcessing
-
-
-class Args:
-    output_dir: str
-    max_thread_num: int
-    retriever: str
-    do_research: bool
-    do_generate_outline: bool
-    do_generate_article: bool
-    do_polish_article: bool
-    max_conv_turn: int
-    max_perspective: int
-    search_top_k: int
-
 
 # Define the arguments
 _args = {
@@ -48,10 +36,7 @@ _args = {
     "search_top_k": 3,
 }
 
-# Convert _args to an instance of Args
-args = Args()
-for key, value in _args.items():
-    setattr(args, key, value)
+args = get_args(_args)
 
 topic = input("Topic: ")
 
