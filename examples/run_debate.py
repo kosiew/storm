@@ -25,7 +25,7 @@ _args = {
     "do_generate_article": False,
     "do_polish_article": False,
     "max_conv_turn": 3,
-    "max_perspective": 3,
+    "max_perspective": 5,
     "search_top_k": 3,
     "max_thread_num": 3,
 }
