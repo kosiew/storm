@@ -154,8 +154,10 @@ class ConvSimulator(dspy.Module):
         """
         topic: The topic to brainstorm
         """
+        global args
         dlg_history: List[DialogueTurn] = []
         personas = self.create_personas(topic=topic).personas
+        personas = personas[: args.max_perspective]
 
         for persona in personas:
             for _ in range(self.max_turn):
@@ -179,7 +181,7 @@ class ConvSimulator(dspy.Module):
                 )
                 dlg_history.append(dlg_turn)
 
-        return dspy.Prediction(dlg_history=dlg_history)
+        return dspy.Prediction(dlg_history=dlg_history, personas=personas)
 
 
 def _run_conversation(
@@ -230,13 +232,17 @@ def main():
     conversations = _run_conversation(conv_simulator, topic)
 
     topic_output_dir = get_topic_output_dir(topic)
-    with open(f"{topic_output_dir}/brainstorm.txt", "w") as f:
+    output_file = f"{topic_output_dir}/brainstorm.txt"
+    with open(output_file, "w") as f:
         for conversation in conversations:
             dlg_history = conversation.dlg_history
+            personas = conversation.personas
             for turn in dlg_history:
                 query_str = "\n".join(turn.search_queries)
                 agent_str = turn.agent_utterance
                 f.write(f"{query_str}\n{agent_str}\n")
+            print(f"==> Brainstorm completed with {len(personas)} personas")
+    print(f"==> Brainstorming results saved to '{output_file}'.")
 
 
 if __name__ == "__main__":
