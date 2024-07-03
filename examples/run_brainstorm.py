@@ -15,9 +15,26 @@ from run_storm_wiki_gpt import GPT_3_5_TURBO, get_openai_kwargs
 from storm_wiki.modules.storm_dataclass import DialogueTurn
 
 sys.path.append("./src")
+from typing import Any
+
 from lm import OpenAIModel
 from utils import ArticleTextProcessing
 
+
+class Args:
+    output_dir: str
+    max_thread_num: int
+    retriever: str
+    do_research: bool
+    do_generate_outline: bool
+    do_generate_article: bool
+    do_polish_article: bool
+    max_conv_turn: int
+    max_perspective: int
+    search_top_k: int
+
+
+# Define the arguments
 _args = {
     "output_dir": "~/Downloads/brainstorm",
     "max_thread_num": 3,
@@ -29,11 +46,12 @@ _args = {
     "max_conv_turn": 3,
     "max_perspective": 5,
     "search_top_k": 3,
-    "max_thread_num": 3,
 }
 
-# convert _args to namespace
-args = type("args", (object,), _args)()
+# Convert _args to an instance of Args
+args = Args()
+for key, value in _args.items():
+    setattr(args, key, value)
 
 topic = input("Topic: ")
 
@@ -126,6 +144,27 @@ class CreativeThinker(dspy.Module):
             ).question
         print(f"==> {persona}_writer: {question=}")
         return dspy.Prediction(question=question)
+
+
+class Conversation:
+    def __init__(self, dlg_history: List[DialogueTurn], personas: List[str]):
+        self._dlg_history = dlg_history
+        self._personas = personas
+
+    @property
+    def dlg_history(self) -> List[DialogueTurn]:
+        return self._dlg_history
+
+    @property
+    def personas(self) -> List[str]:
+        return self._personas
+
+    def __getattr__(self, name: str):
+        if name == "dlg_history":
+            return self.dlg_history
+        if name == "personas":
+            return self.personas
+        raise AttributeError(f"'Conversation' object has no attribute '{name}'")
 
 
 class ConvSimulator(dspy.Module):
@@ -229,16 +268,20 @@ def main():
     conv_simulator = ConvSimulator(
         max_search_queries_per_turn=3, search_top_k=3, max_turn=3
     )
-    conversations = _run_conversation(conv_simulator, topic)
+    conversations: List[Tuple[str, List[DialogueTurn]]] = _run_conversation(
+        conv_simulator, topic
+    )
 
     topic_output_dir = get_topic_output_dir(topic)
     output_file = f"{topic_output_dir}/brainstorm.txt"
     with open(output_file, "w") as f:
         for conversation in conversations:
-            dlg_history = conversation.dlg_history
+            _, dlg_history = conversation  # Unpack the tuple
             personas = conversation.personas
             for turn in dlg_history:
-                query_str = "\n".join(turn.search_queries)
+                query_str = (
+                    "\n".join(turn.search_queries) if turn.search_queries else ""
+                )
                 agent_str = turn.agent_utterance
                 f.write(f"{query_str}\n{agent_str}\n")
             print(f"==> Brainstorm completed with {len(personas)} personas")
