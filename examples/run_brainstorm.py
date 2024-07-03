@@ -26,9 +26,9 @@ _args = {
     "do_generate_outline": True,
     "do_generate_article": False,
     "do_polish_article": False,
-    "max_conv_turn": 1,
-    "max_perspective": 1,
-    "search_top_k": 1,
+    "max_conv_turn": 3,
+    "max_perspective": 5,
+    "search_top_k": 3,
     "max_thread_num": 3,
 }
 
@@ -238,7 +238,6 @@ def main():
             dlg_history = conversation.dlg_history
             personas = conversation.personas
             for turn in dlg_history:
-                print(f"==> writing {turn.user_utterance}")
                 query_str = "\n".join(turn.search_queries)
                 agent_str = turn.agent_utterance
                 f.write(f"{query_str}\n{agent_str}\n")
