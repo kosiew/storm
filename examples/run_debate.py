@@ -42,6 +42,8 @@ DEBATE_ROLES = ["opposer", "proposer"]
 def get_topic_output_dir(topic: str):
     topic_dir_name = topic.replace(" ", "_").replace("/", "_")
     topic_output_dir = os.path.join(args.output_dir, topic_dir_name)
+    # expand user path
+    topic_output_dir = os.path.expanduser(topic_output_dir)
     os.makedirs(topic_output_dir, exist_ok=True)
     return topic_output_dir
 
