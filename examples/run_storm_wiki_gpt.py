@@ -62,8 +62,10 @@ def main(args):
     lm_configs.set_article_gen_lm(article_gen_lm)
     lm_configs.set_article_polish_lm(article_polish_lm)
 
+    # expand user path for output_dir
+    output_dir = os.path.expanduser(args.output_dir)
     engine_args = STORMWikiRunnerArguments(
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         max_conv_turn=args.max_conv_turn,
         max_perspective=args.max_perspective,
         search_top_k=args.search_top_k,
@@ -86,6 +88,28 @@ def main(args):
     runner = STORMWikiRunner(engine_args, lm_configs, rm)
 
     topic = input("Topic: ")
+    if topic:
+        run_topic(args, runner, topic)
+    else:
+        try_topics_file(args, runner)
+
+
+def try_topics_file(args, runner):
+    # expand user path for topics_file
+    topics_file = os.path.expanduser(args.topics_file)
+    with open(topics_file, "r") as f:
+        topics = f.readlines()
+    for topic in topics:
+        topic = topic.strip()
+        if topic:
+            run_topic(args, runner, topic)
+
+    # remove contents of topics file
+    with open(topics_file, "w") as f:
+        f.write("")
+
+
+def run_topic(args, runner, topic):
     runner.run(
         topic=topic,
         do_research=args.do_research,
@@ -118,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="./results/gpt",
+        default="~/Downloads/storm",
         help="Directory to store the outputs.",
     )
     parser.add_argument(
@@ -187,6 +211,14 @@ if __name__ == "__main__":
         "--remove-duplicate",
         action="store_true",
         help="If True, remove duplicate content from the article.",
+    )
+
+    # add argument for a topics file
+    parser.add_argument(
+        "--topics-file",
+        type=str,
+        default="~/Downloads/storm/topics.txt",
+        help="File containing topics to run the pipeline on.",
     )
 
     main(parser.parse_args())
