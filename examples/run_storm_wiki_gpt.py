@@ -99,14 +99,32 @@ def try_topics_file(args, runner):
     topics_file = os.path.expanduser(args.topics_file)
     with open(topics_file, "r") as f:
         topics = f.readlines()
-    for topic in topics:
-        topic = topic.strip()
-        if topic:
-            run_topic(args, runner, topic)
 
-    # remove contents of topics file
-    with open(topics_file, "w") as f:
-        f.write("")
+    processed_topics = []
+
+    try:
+        for topic in topics:
+            topic = topic.strip()
+            if topic:
+                run_topic(args, runner, topic)
+                processed_topics.append(topic)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        # Determine unprocessed topics
+        unprocessed_topics = [
+            topic for topic in topics if topic.strip() not in processed_topics
+        ]
+
+        # Update topics_file with unprocessed topics
+        with open(topics_file, "w") as f:
+            f.writelines(unprocessed_topics)
+
+        # Print processed topics
+        topics_processed = "\n".join(processed_topics)
+        print(f"Finished running \n{topics_processed}\n topics in {topics_file}")
+
+        print(f"Updated {topics_file} with unprocessed topics")
 
 
 def run_topic(args, runner, topic):
