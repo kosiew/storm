@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 
 sys.path.append("./src")
 from lm import OpenAIModel
-from rm import BingSearch, OpenAIBrowserSearch, YouRM
+from rm import BingSearch, DuckDuckGoSearch, YouRM
 from storm_wiki.engine import (
     STORMWikiLMConfigs,
     STORMWikiRunner,
@@ -83,16 +83,15 @@ def main(args):
 
     # STORM is a knowledge curation system which consumes information from the retrieval module.
     # Currently, the information source is the Internet and we use search engine API as the retrieval module.
+    rm = None
     if args.retriever == "bing":
         rm = BingSearch(
             bing_search_api=os.getenv("BING_SEARCH_API_KEY"), k=engine_args.search_top_k
         )
     elif args.retriever == "you":
         rm = YouRM(ydc_api_key=os.getenv("YDC_API_KEY"), k=engine_args.search_top_k)
-    elif args.retriever == "openai":
-        rm = OpenAIBrowserSearch(
-            openai_api_key=os.getenv("OPENAI_API_KEY"), k=engine_args.search_top_k
-        )
+    elif args.retriever == "duckduckgo":
+        rm = DuckDuckGoSearch(k=engine_args.search_top_k)
 
     runner = STORMWikiRunner(engine_args, lm_configs, rm)
 

@@ -5,6 +5,7 @@ from concurrent.futures import as_completed
 from typing import Dict, List, Optional, Tuple, Union
 
 import dspy
+from rich import print
 
 from interface import KnowledgeCurationModule, Retriever
 from storm_wiki.modules.callback import BaseCallbackHandler

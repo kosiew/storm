@@ -3,8 +3,10 @@ import sys
 from argparse import ArgumentParser
 
 sys.path.append("./src")
+from rich import print
+
 from lm import OpenAIModel
-from rm import BingSearch, OpenAIBrowserSearch, YouRM
+from rm import BingSearch, DuckDuckGoSearch, YouRM
 from storm_wiki.engine import (
     STORMWikiLMConfigs,
     STORMWikiRunner,
@@ -74,16 +76,15 @@ def main(args):
 
     # STORM is a knowledge curation system which consumes information from the retrieval module.
     # Currently, the information source is the Internet and we use search engine API as the retrieval module.
+    rm = None
     if args.retriever == "bing":
         rm = BingSearch(
             bing_search_api=os.getenv("BING_SEARCH_API_KEY"), k=engine_args.search_top_k
         )
     elif args.retriever == "you":
         rm = YouRM(ydc_api_key=os.getenv("YDC_API_KEY"), k=engine_args.search_top_k)
-    elif args.retriever == "openai":
-        rm = OpenAIBrowserSearch(
-            openai_api_key=os.getenv("OPENAI_API_KEY"), k=engine_args.search_top_k
-        )
+    elif args.retriever == "duckduckgo":
+        rm = DuckDuckGoSearch(k=engine_args.search_top_k)
 
     runner = STORMWikiRunner(engine_args, lm_configs, rm)
 
@@ -121,10 +122,12 @@ def try_topics_file(args, runner):
             f.writelines(unprocessed_topics)
 
         # Print processed topics
-        topics_processed = "\n".join(processed_topics)
-        print(f"Finished running \n{topics_processed}\n topics in {topics_file}")
-
-        print(f"Updated {topics_file} with unprocessed topics")
+        if processed_topics:
+            topics_processed = "\n".join(processed_topics)
+            print(f"Finished running \n{topics_processed}\n in {topics_file}")
+            print(f"Updated {topics_file} with unprocessed topics")
+        else:
+            print(f"No topics were processed in {topics_file}")
 
 
 def run_topic(args, runner, topic):
@@ -174,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--retriever",
         type=str,
-        choices=["bing", "you", "openai"],
+        choices=["bing", "you", "duckduckgo"],
         help="The search engine API to use for retrieving information.",
     )
     # stage of the pipeline

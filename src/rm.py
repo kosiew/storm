@@ -5,9 +5,13 @@ from typing import Callable, List, Union
 
 import dspy
 import requests
+from duckduckgo_search import DDGS
 from openai import OpenAI
+from rich import print
 
 from utils import WebPageHelper
+
+DUCKDUCKGO_BACKEND = "api"
 
 
 class YouRM(dspy.Retrieve):
@@ -177,66 +181,7 @@ class BingSearch(dspy.Retrieve):
         return collected_results
 
 
-class Chat:
-    def __init__(self, openai_api_key=None, model="gpt-4o"):
-        """
-        Initializes the Chat class with API key and model.
-        """
-        api_key = None
-        if not openai_api_key and not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError(
-                "You must supply openai_api_key or set environment variable OPENAI_API_KEY"
-            )
-        elif openai_api_key:
-            api_key = openai_api_key
-        else:
-            api_key = os.environ["OPENAI_API_KEY"]
-
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
-        self.chat_history = [
-            {
-                "role": "system",
-                "content": "You are a helpful assistant designed to output JSON.",
-            }
-        ]
-
-    def append_response_to_history(self, response):
-        message = response.choices[0].message
-
-        self.chat_history.append({"role": message.role, "content": message.content})
-
-    def get_reply(self, response):
-        content = response.choices[0].message.content
-        return content
-
-    def print_reply(self, response):
-        print(self.get_reply(response))
-
-    def ask(self, query, model="gpt-4o"):
-        self.chat_history.append({"role": "user", "content": query})
-
-        response = self.client.chat.completions.create(
-            model=model,
-            response_format={"type": "json_object"},
-            messages=self.chat_history,
-        )
-
-        self.append_response_to_history(response)
-
-        # self.print_reply(response)
-        # print(response.usage.total_tokens)
-        return self.get_reply(response)
-
-    def browser_results(self, query, k=3):
-        _query = f"Use Browser to retrieve {k} results related to {query}. The output should be a results array of dict of (title, url, description, snippets(array of string))"
-        json_content = self.ask(_query)
-        return json.loads(json_content)
-
-
-class OpenAIBrowserSearch(dspy.Retrieve):
-    model = "gpt-4o"
-
+class DuckDuckGoSearch(dspy.Retrieve):
     def __init__(
         self,
         openai_api_key=None,
@@ -255,14 +200,6 @@ class OpenAIBrowserSearch(dspy.Retrieve):
             **kwargs: Additional parameters for the OpenAI API.
         """
         super().__init__(k=k)
-        if not openai_api_key and not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError(
-                "You must supply openai_api_key or set environment variable OPENAI_API_KEY"
-            )
-        elif openai_api_key:
-            self.openai_api_key = openai_api_key
-        else:
-            self.openai_api_key = os.environ["OPENAI_API_KEY"]
 
         self.k = k
         self.webpage_helper = WebPageHelper(
@@ -277,19 +214,20 @@ class OpenAIBrowserSearch(dspy.Retrieve):
             self.is_valid_source = is_valid_source
         else:
             self.is_valid_source = lambda x: True
-        self.chat = Chat(openai_api_key=self.openai_api_key, model=self.model)
+
+        self.ddgs = DDGS()
 
     # TODO: this is used in BingSearch and YouRM, consider moving it to a common place.
     def get_usage_and_reset(self):
         usage = self.usage
         self.usage = 0
-        return {"OpenAIBrowserSearch": usage}
+        return {"DuckDuckGoSearch": usage}
 
     # this is the important function that is used by Retriever in the pipeline
     def forward(
         self, query_or_queries: Union[str, List[str]], exclude_urls: List[str] = []
     ):
-        """Search with OpenAI's Browser Tool for self.k top passages for query or queries
+        """Search with DuckDuckGoSearch for self.k top passages for query or queries
 
         Args:
             query_or_queries (Union[str, List[str]]): The query or queries to search for.
@@ -308,18 +246,10 @@ class OpenAIBrowserSearch(dspy.Retrieve):
         collected_results = []
 
         for query in queries:
-            _results = self.chat.browser_results(query, self.k)
-            results = None
-            is_dict_results = isinstance(_results, dict) and "results" in _results
-            if is_dict_results:
-                results = _results["results"]
-            else:
-                if not isinstance(_results, dict):
-                    # print type of _results
-                    print(f"Invalid type of results: {type(_results)}")
-                else:
-                    print("missing results key in _results {results.keys()}")
-                continue
+            #  list of dict
+            results = self.ddgs.text(
+                query, max_results=self.k, backend=DUCKDUCKGO_BACKEND
+            )
 
             for d in results:
                 # assert d is dict
@@ -329,10 +259,10 @@ class OpenAIBrowserSearch(dspy.Retrieve):
 
                 try:
                     # ensure keys are present
-                    url = d.get("url", None)
+                    url = d.get("href", None)
                     title = d.get("title", None)
-                    description = d.get("description", None)
-                    snippets = d.get("snippets", None)
+                    description = d.get("description", title)
+                    snippets = d.get("body", None)
 
                     # raise exception of missing key(s)
                     if not all([url, title, description, snippets]):
