@@ -262,7 +262,7 @@ class DuckDuckGoSearch(dspy.Retrieve):
                     url = d.get("href", None)
                     title = d.get("title", None)
                     description = d.get("description", title)
-                    snippets = d.get("body", None)
+                    snippets = [d.get("body", None)]
 
                     # raise exception of missing key(s)
                     if not all([url, title, description, snippets]):
