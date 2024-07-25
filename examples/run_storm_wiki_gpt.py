@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from argparse import ArgumentParser
 
 sys.path.append("./src")
@@ -39,6 +40,8 @@ args.output_dir/
 
 
 def main(args):
+    start_time = time.time()  # Record the start time
+
     openai_kwargs = get_openai_kwargs()
 
     lm_configs = STORMWikiLMConfigs()
@@ -93,6 +96,13 @@ def main(args):
         run_topic(args, runner, topic)
     else:
         try_topics_file(args, runner)
+
+    end_time = time.time()  # Record the end time
+    duration = end_time - start_time  # Calculate the duration
+    duration_minutes = duration / 60  # Convert duration to minutes
+    print(
+        f"main ran for {duration_minutes:.2f} minutes"
+    )  # Print the duration in minutes
 
 
 def try_topics_file(args, runner):
